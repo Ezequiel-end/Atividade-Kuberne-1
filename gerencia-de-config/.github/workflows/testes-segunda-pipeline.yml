@@ -1,0 +1,68 @@
+name: Testes da Segunda Pipeline
+
+on:
+  workflow_call:
+    secrets:
+      SONAR_TOKEN:
+        required: true
+
+jobs:
+  unit-tests:
+    name: Testes Unitários
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        working-directory: ./segunda-pipeline
+        run: npm install
+
+      - name: Run Unit Tests
+        working-directory: ./segunda-pipeline
+        run: npm run test:unit
+
+  e2e-tests:
+    name: Testes End-to-End
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        working-directory: ./segunda-pipeline
+        run: npm install
+
+      - name: Run E2E Tests
+        working-directory: ./segunda-pipeline
+        run: npm run test:e2e
+
+  analise-codigo:
+    name: Análise de Código com SonarQube
+    runs-on: ubuntu-latest
+    needs: e2e-tests
+
+    steps:
+      - name: Verificar Quality Gate
+        uses: SonarSource/sonarcloud-github-action@v2
+        with:
+          args: >
+            -Dsonar.projectKey=profdiegocbcastro_gerencia-de-config
+            -Dsonar.organization=profdiegocbcastro
+            -Dsonar.qualitygate.wait=true
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

@@ -1,0 +1,20 @@
+name: Deploy Produção
+
+on:
+  workflow_call:
+      secrets:
+        RENDER_DEPLOY_HOOK:
+          required: true
+
+jobs:
+  deploy-prod:
+    name: Deploy em Produção
+    runs-on: ubuntu-latest
+
+    environment:
+      name: production
+      url: https://gerencia-de-config.onrender.com
+
+    steps:
+      - name: Deploy no Render (PROD)
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}

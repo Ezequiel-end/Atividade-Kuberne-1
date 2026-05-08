@@ -1,0 +1,92 @@
+name: Segunda pipeline
+run-name: Segunda pipeline executada por ${{ github.actor }}
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+  workflow-testes:
+    uses: ./.github/workflows/testes-segunda-pipeline.yml
+    needs: build
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  release:
+    name: Criação de Release
+    runs-on: ubuntu-latest
+    needs: workflow-testes
+
+    steps:
+      - name: Obtendo o código do projeto
+        uses: actions/checkout@v5
+
+      - name: Build da imagem Docker
+        uses: docker/build-push-action@v6
+        with:
+          push: false
+          context: ./pipelines/segunda-pipeline
+          file: segunda-pipeline/dockerfile
+          tags: ${{ secrets.DOCKERHUB_USER }}/segunda-pipeline:latest
+
+      - name: Scan de vulnerabilidades com Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USER }}/segunda-pipeline:latest
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload do relatório Trivy
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-report.json
+
+      - name: Upload do relatório Trivy
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-report.json
+
+      - name: Efetuando o Login no Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_PWD }}
+
+      - name: Build e Push da Imagem Docker
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          context: ./pipelines/segunda-pipeline
+          file: segunda-pipeline/dockerfile
+          tags: ${{ secrets.DOCKERHUB_USER }}/segunda-pipeline:v${{ github.run_number }}
+
+  deploy-homolog:
+    uses: ./.github/workflows/deploy-segunda-pipeline.yml
+    needs: release
+    secrets:
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+
+  deploy-prod:
+    uses: ./.github/workflows/deploy-prod-segunda-pipeline.yml
+    needs: deploy-homolog
+    secrets:
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
